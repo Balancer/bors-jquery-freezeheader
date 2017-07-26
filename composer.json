@@ -9,6 +9,7 @@
 
 	"require": {
 		"bors/jquery": "*",
+		"bower-asset/jquery.browser": "*",
 		"robloach/component-installer": "*"
 	},
 

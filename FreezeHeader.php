@@ -8,7 +8,8 @@ class FreezeHeader
 	{
 		\B2\jQuery::load();
 
-//		bors_use('http://cdn.wysibb.com/js/jquery.wysibb.min.js');
-		jquery::on_ready("\$($element).freezeHeader();");
+		bors_use('/bower-asset/jquery.browser/dist/jquery.browser.min.js');
+		bors_use('/components/jquery-freezeheader/jquery.freezeheader.js');
+		\B2\jQuery::on_ready("\$($element).freezeHeader();");
 	}
 }
