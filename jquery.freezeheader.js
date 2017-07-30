@@ -1,261 +1,165 @@
-/*
-  Freeze Table Header
-    Make table headers always visible in the viewport.
-    http://brentmuir.com/projects/freezeheader
+/* ------------------------------------------------------------------------
+ Class: freezeHeader
+ Use:freeze header row in html table
+ Example 1:  $('#tableid').freezeHeader();
+ Example 2:  $("#tableid").freezeHeader({ 'height': '300px' });
+ Example 3:  $("table").freezeHeader();
+ Example 4:  $(".table2").freezeHeader();
+ Example 5:  $("#tableid").freezeHeader({ 'offset': '50px' });
+ Author(s): Laerte Mercier Junior
  
-  Copyright (c) 2011 Brent Muir
+ Contributors:
+ 	https://github.com/lahendrix
+ 	https://github.com/waynebloss
  
-  Licensed under the MIT license ( http://www.opensource.org/licenses/mit-license )
+ Version: 1.0.8
+ -------------------------------------------------------------------------*/
+(function($) {
+	var TABLE_ID = 0;
+	$.fn.freezeHeader = function(params) {
 
-  Version 0.6.1
+		var copiedHeader = false;
 
-  Usage:
-    $("table").freezeHeader();
-    $("table").freezeHeader({ top: true, left: false });
-        - This will create frozen THEAD headers for every table on the page.
-        - This is the default.
-    $("table").freezeHeader({ top: false, left: true });
-        - This will create frozen left column headers for every table on the page.
-    $("table").freezeHeader({ top: true, left: false });
-        - This will create frozen THEAD and left column headers for every table on the page.
-        - This will also freeze the top left corner of the table. 
+		function freezeHeader(elem) {
+			var idObj = elem.attr('id') || ('tbl-' + (++TABLE_ID));
+			if (elem.length > 0 && elem[0].tagName.toLowerCase() == "table") {
 
-  Assumptions:
-    - Table will have THEAD and TBODY tags to distinguish the header from the rest of the table.
-    - TH elements are used in the THEAD.
-    - Assumes a relatively simple table with no merged cells.
+				var obj = {
+					id : idObj,
+					grid : elem,
+					container : null,
+					header : null,
+					divScroll : null,
+					openDivScroll : null,
+					closeDivScroll : null,
+					scroller : null
+				};
 
-  Limitations:
-    - Setting a left margin on the table itself breaks the calculations below. Wrap the
-      table in a DIV and set the margins on the DIV instead.
-    - Not pixel-perfect in IE
+				if (params && params.height !== undefined) {
+					obj.divScroll = '<div id="hdScroll' + obj.id + '" style="height: ' + params.height + '; overflow-y: scroll">';
+					obj.closeDivScroll = '</div>';
+				}
 
-*/
 
-(function( $ ){
+				obj.header = obj.grid.find('thead');
 
-    var methods = {
+				if (params && params.height !== undefined) {
+					if ($('#hdScroll' + obj.id).length == 0) {
+						obj.grid.wrapAll(obj.divScroll);
+					}
+				}
 
-        init : function( options ) {
+				obj.scroller = params && params.height !== undefined ? $('#hdScroll' + obj.id) : $(window);
 
-            var settings = {
-                'top'  : true,
-                'left' : false
-            };
-            if (options) { $.extend(settings, options); }
-      
-            return this.each(function(){
-                var $this = $(this);
-                var data = $this.data('freezeHeader');
-         
-                // If the plugin hasn't been initialized yet
-                if ( ! data ) {
-                    var topHeader = null;
-                    var leftHeader = null;
-                    var cornerHeader = null;
-          
-                    // add divs within TH elements to force width. Set to nowrap to stop sizing problems in IE
-                    $this.find("th").wrapInner("<div style=\"white-space:nowrap;\">");
-                    
-                    // add divs within all other TD elements
-                    $this.find("td").wrapInner("<div>");
-                    
-                    // To create a frozen top header, we clone the entire table and remove the TBODY
-                    // Need to wrap the table in a div because dynamically setting position:fixed on a table
-                    // doesn't work in IE8, but setting it on the div does.
-                    // Set initial div positioning to overlap existing table to work around IE8 bug (otherwise
-                    // document height will include the cloned tables even though they are moved later)
-                    if (settings.left) {
-                        leftHeader = $this.clone(false)
-                            .find("th:nth-child(n+2), td:nth-child(n+2)").remove().end()
-                            .appendTo(document.body).wrap("<div>").parent()
-                            .css({ position: 'absolute', top: $this.offset().top, left: $this.offset().left });
-                    }
-          
-                    if (settings.top) {
-                        topHeader = $this.clone(false)
-                            .children("tbody").remove().end()
-                            .appendTo(document.body)
-                            .wrap("<div>").parent()
-                            .css({ position: 'absolute', top: $this.offset().top, left: $this.offset().left });
-                    }
-          
-                    if (settings.left && settings.top) {
-                        cornerHeader = topHeader.clone(false) // skip a few steps by cloning topHeader
-                            .find("th:nth-child(n+2)").remove().end()
-                            .appendTo(document.body);
-                    }
+				if (params && params.scrollListenerEl !== undefined) {
+					obj.scroller = params.scrollListenerEl;
+				}
+				obj.scroller.on('scroll', function() {
+					if ($('#hd' + obj.id).length == 0) {
+						obj.grid.before('<div id="hd' + obj.id + '"></div>');
+					}
 
-                    $this.data('freezeHeader', { top: topHeader, left: leftHeader, corner: cornerHeader} );
-                }
-                $(window).bind('resize.freezeHeader', { table: $this }, methods.resize);
-                $(window).bind('scroll.freezeHeader', { table: $this }, methods.scroll);
-                $(window).trigger('resize'); // force a resize event to calculate all widths/heights
-            });
-        }, // end init()
-    
-    
-        destroy : function( ) {
-            return this.each(function(){
-                var $this = $(this);
-                var data = $this.data('freezeHeader');
+					obj.container = $('#hd' + obj.id);
 
-                $(window).unbind('resize.freezeHeader');
-                $(window).unbind('scroll.freezeHeader');
 
-                data.top.remove();
-                data.left.remove();
-                data.corner.remove();
-                
-                $this.removeData('freezeHeader');
-            })
-        },
+					if (isNaN(obj.grid.css("zIndex"))) {
+					    obj.container.css("zIndex", -1);
+					    obj.grid.css("zIndex", -2);
+					    obj.grid.css("position", "relative");
+					}
+					else {
+					    obj.container.css("zIndex", parseInt(obj.grid.css("zIndex")) + 1);
+					}
+					
 
-    
-        resize : function( event ) {
-            var table = event.data.table;
-            var topHeader = table.data('freezeHeader').top;
-            var leftHeader = table.data('freezeHeader').left;
-            var cornerHeader = table.data('freezeHeader').corner;
-            var fudge = 0;
-            if ($.browser.msie) { fudge = 1 }
+					if (obj.header.offset() != null) {
+						if (limiteAlcancado(obj, params)) {
+							if (!copiedHeader) {
+								cloneHeaderRow(obj);
+								copiedHeader = true;
+							}
 
-            // set the width of the header th elements to the same as the data table th elements
-            if (topHeader) {
-                topHeader.find("th>div").each(function (i) {
-                    if (typeof window.getComputedStyle == 'function') {
-                        $(this).width(window.getComputedStyle(table.find("th>div").eq(i).get(0),"").getPropertyValue("width"));
-                    } else {
-                        $(this).width(table.find("th>div").eq(i).width());
-                    }          
-                });
-            }
-      
-            // set the width and height of the corner
-            if (cornerHeader) {
-                cornerHeader.find("th>div").width(table.find("th>div").eq(0).width()+fudge);
-                cornerHeader.find("th>div").height(table.find("th>div").eq(0).height());
-            }
-      
-            // set the width and height of the frozen column headers
-            if (leftHeader) {
-                $(leftHeader.children().attr("rows")).each(function (i) {
-                    var tdDivs = $(table.attr("rows")[i]).children().children();
-                    var maxHeight = 0;
-                    var height = 0;
-                    var width = 0;
-                    // the divs in a row might have varying heights, so find the largest one
-                    // use getComputedStyle where we can because FF uses fractional heights and 
-                    // height() only returns whole pixels
-                    tdDivs.each(function() {
-                        if (typeof window.getComputedStyle == 'function') {
-                            height = window.getComputedStyle(this,"").getPropertyValue("height").replace("px", "");
-                        } else {
-                            height = $(this).height();
-                        }
-                        maxHeight = Math.max( maxHeight, height );
-                    });
-                    $(this).children().children().eq(0).height(maxHeight + "px"); // need to add px to get FF to recognise fraction
+							// The following line was added - waynebloss
+							obj.container.css("left", ("-" + obj.scroller.scrollLeft() + "px"));
+						} else {
 
-                    if (typeof window.getComputedStyle == 'function') {
-                        width = window.getComputedStyle(tdDivs.eq(0).get(0),"").getPropertyValue("width").replace("px", "");
-                    } else {
-                        width = tdDivs.first().width();
-                    }
-                    // need to add px to get FF to recognise fraction
-                    // also add 1 to fudge things to get IE to work nicely
-                    $(this).children().children().eq(0).width((parseFloat(width)+fudge) + "px");
-                });
-            }
-      
-            // trigger a scroll event because a resize may reposition some elements
-            $(window).trigger('scroll');
-        }, // end resize()
-    
-    
-        scroll : function( event ) {
-            var table = event.data.table;
-            var topHeader = table.data('freezeHeader').top;
-            var leftHeader = table.data('freezeHeader').left;
-            var cornerHeader = table.data('freezeHeader').corner;
-            var scrollTop = $(window).scrollTop();
-            var scrollLeft = $(window).scrollLeft();
-            var tableTop = table.offset().top;
-            var tableLeft = table.offset().left;
+							if (($(document).scrollTop() > obj.header.offset().top)) {
+								obj.container.css("position", "absolute");
+								obj.container.css("top", (obj.grid.find("tr:last").offset().top - obj.header.height()) + "px");
+								// The same exact line was added here (yuck!) - waynebloss
+								obj.container.css("left", ("-" + obj.scroller.scrollLeft() + "px"));
+							} else {
+								obj.container.css("visibility", "hidden");
+								obj.container.css("top", "0px");
+								obj.container.width(0);
+							}
+							copiedHeader = false;
+						}
+					}
 
-            if (topHeader) {
-                var tableBottom = tableTop + table.height() - topHeader.height()
-                    - table.attr("rows")[table.attr("rows").length-1].offsetHeight;
-            }
-            if (leftHeader) {
-                var tableRight = tableLeft + table.width() - leftHeader.width()
-                    - table.attr("rows")[0].cells[table.attr("rows")[0].cells.length-1].offsetWidth;
-            }
-      
-            // iPad (and IE6) doesn't handle position:fixed, so we use normal Javascript positioning.
-            // This results in flickering in all browsers except Safari.
-            if (($.browser.msie && $.browser.version < 7) || navigator.platform.indexOf("iPad") != -1) {
+				});
+			}
+		}
 
-                topHeader.css({
-                    position: 'absolute',
-                    top: Math.min(Math.max(tableTop, scrollTop), tableBottom),
-                    left: Math.min(tableLeft, tableRight) });
-                leftHeader.css({
-                    position: 'absolute',
-                    top: Math.min(tableTop, tableBottom),
-                    left: Math.min(Math.max(tableLeft, scrollLeft), tableRight) });
-                cornerHeader.css({
-                    position: 'absolute',
-                    top: Math.min(Math.max(tableTop, scrollTop), tableBottom),
-                    left: Math.min(Math.max(tableLeft, scrollLeft), tableRight) });
+		function limiteAlcancado(obj, params) {
+			var offset = params.offset || "0";
+			if (params && (params.height !== undefined || params.scrollListenerEl !== undefined)) {
+				return (obj.header.offset().top <= obj.scroller.offset().top);
+			} else {
+				return ($(document).scrollTop() + parseInt(offset) > obj.header.offset().top && $(document).scrollTop() < (obj.grid.height() - obj.header.height() - obj.grid.find("tr:last").height()) + obj.header.offset().top);
+			}
+		}
 
-            } else {
+		function cloneHeaderRow(obj) {
+			obj.container.html('');
+			obj.container.val('');
+			var tabela = $('<table style="margin: 0 0;"></table>');
+			var atributos = obj.grid.prop("attributes");
 
-                // To avoid flickering, use position fixed and hide whenever we can
-                if (topHeader) {
-                    topHeader.css(
-                        (scrollTop < tableTop) ?
-                            { visibility: 'hidden' } :
-                            { visibility: 'visible',
-                              position: 'fixed',
-                              top: Math.min(Math.max(0, tableTop - scrollTop), tableBottom - scrollTop),
-                              left: tableLeft - scrollLeft });
-                }
-        
-                if (leftHeader) {
-                    leftHeader.css(
-                        (scrollLeft < tableLeft) ?
-                            { visibility: 'hidden' } :
-                            { visibility: 'visible',
-                              position: 'fixed',
-                              top: tableTop - scrollTop,
-                              left: Math.min(Math.max(0, tableLeft - scrollLeft), tableRight - scrollLeft) });
-                }
+			$.each(atributos, function() {
+				if (this.name != "id") {
+					tabela.attr(this.name, this.value);
+				}
+			});
 
-                if (cornerHeader) {
-                    cornerHeader.css(
-                        (scrollTop < tableTop || scrollLeft < tableLeft) ?
-                            { visibility: 'hidden' } :
-                            { visibility: 'visible',
-                              position: 'fixed',
-                              top: Math.min(Math.max(0, tableTop - scrollTop), tableBottom - scrollTop),
-                              left: Math.min(Math.max(0, tableLeft - scrollLeft), tableRight - scrollLeft) });
-                }
+			tabela.append('<thead>' + obj.header.html() + '</thead>');
 
-            }
+			obj.container.append(tabela);
+			obj.container.width(obj.header.width());
+			obj.container.height(obj.header.height);
+			obj.container.find('th').each(function(index) {
+				var cellWidth = obj.grid.find('th').eq(index).width();
+				$(this).css('width', cellWidth);
+			});
 
-        } // end scroll()
+			obj.container.css("visibility", "visible");
 
-    };
+			if (params && params.height !== undefined) {
 
-    $.fn.freezeHeader = function( method ) {
-        if ( methods[method] ) {
-            return methods[method].apply( this, Array.prototype.slice.call( arguments, 1 ));
-        } else if ( typeof method === 'object' || ! method ) {
-            return methods.init.apply( this, arguments );
-        } else {
-            $.error( 'Method ' +  method + ' does not exist on jQuery.freezeHeader' );
-        }    
-    };
+				if (params.offset !== undefined) {
+					obj.container.css("top", obj.scroller.offset().top + parseInt(params.offset) + "px");
+				} else {
+					obj.container.css("top", obj.scroller.offset().top + "px");
+				}
 
-})( jQuery );
+				obj.container.css("position", "absolute");
+
+			} else if (params && params.scrollListenerEl !== undefined) {
+				obj.container.css("top", obj.scroller.find("thead > tr").innerHeight() + "px");
+				obj.container.css("position", "absolute");
+				obj.container.css("z-index", "2");
+			} else if (params && params.offset !== undefined) {
+				obj.container.css("top", params.offset);
+				obj.container.css("position", "fixed");
+			} else {
+				obj.container.css("top", "0px");
+				obj.container.css("position", "fixed");
+			}
+		}
+
+		return this.each(function(i, e) {
+			freezeHeader($(e));
+		});
+
+	};
+})(jQuery);
