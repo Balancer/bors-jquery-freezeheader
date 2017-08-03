@@ -63,8 +63,8 @@
 
 
 					if (isNaN(obj.grid.css("zIndex"))) {
-					    obj.container.css("zIndex", -1);
-					    obj.grid.css("zIndex", -2);
+//					    obj.container.css("zIndex", -1);
+//					    obj.grid.css("zIndex", -2);
 					    obj.grid.css("position", "relative");
 					}
 					else {
